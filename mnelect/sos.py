@@ -46,7 +46,8 @@ def snapshot(cfg: dict) -> Path:
     stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     folder = SNAPSHOT_DIR / stamp
     folder.mkdir(parents=True, exist_ok=True)
-    names = list(live.get("precinct_files", [])) + list(live.get("county_files", []))
+    names = (list(live.get("precinct_files", [])) + list(live.get("county_files", []))
+             + list(live.get("legislative_files", [])))
     if live.get("precinct_table_file"):
         names.append(live["precinct_table_file"])
     for name in names:
@@ -59,20 +60,28 @@ def snapshot(cfg: dict) -> Path:
     return folder
 
 
-def parse_results(raw: bytes | str) -> pd.DataFrame:
-    """Parse one SOS media results file into a tidy frame (statewide races only)."""
+def read_raw(raw: bytes | str) -> pd.DataFrame:
+    """Parse any SOS media file (all offices). Party is bucketed DFL/R/OTHER;
+    the original code is kept in `party_raw`."""
     text = raw.decode("latin-1") if isinstance(raw, bytes) else raw
     df = pd.read_csv(io.StringIO(text), sep=";", header=None, dtype=str,
                      keep_default_na=False, quoting=3, on_bad_lines="warn")
     df = df.iloc[:, : len(SOS_COLS)]
     df.columns = SOS_COLS[: df.shape[1]]
-    df["office"] = [map_office(o, d) for o, d in zip(df["office_name"], df["district"])]
-    df = df[df["office"].notna()].copy()
     for c in ("county_id", "precincts_reporting", "precincts_total", "votes", "office_total"):
         df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0).astype(int)
     df["precinct_code"] = df["precinct_code"].map(pad_code)
+    df["district"] = df["district"].str.strip().str.upper()
+    df["party_raw"] = df["party"]
     df["party"] = df["party"].map(map_party)
     return df
+
+
+def parse_results(raw: bytes | str) -> pd.DataFrame:
+    """Parse one SOS media results file into a tidy frame (statewide races only)."""
+    df = read_raw(raw)
+    df["office"] = [map_office(o, d) for o, d in zip(df["office_name"], df["district"])]
+    return df[df["office"].notna()].copy()
 
 
 def parse_precinct_table(raw: bytes | str) -> pd.DataFrame:

@@ -37,7 +37,27 @@ Before the first live pull, **read PLAN.md step 1**: the SOS file names in
 |---|---|---|
 | `statewide_summary.csv` | race × baseline | `live_margin`, `baseline_margin`, `swing_reported`, `turnout_idx_reported` |
 | `county_swing.csv` | county × race × baseline | `swing_all`, `swing_reported`, `turnout_idx_all`, `turnout_idx_reported`, `precincts_reported` |
-| `precinct_swing.csv` | precinct × race × baseline | `margin`, `margin_base`, `swing`, `turnout_idx`, `reported`, `matched` |
+| `precinct_swing.csv` | precinct × race × baseline | `margin`, `margin_base`, `swing`, `turnout_idx`, `reported`, `matched` (only once SOS posts the precinct file) |
+| `district_swing.csv` | House/Senate district × baseline | same columns as `county_swing`, plus `contested`, `contested_base`, candidates |
+| `district_projection.csv` | House/Senate district | `status`, `p_dfl`, `projected_margin`, `w` (share of precincts in), `margin`, `prior_margin`, `recount_range` |
+| `chamber_control.csv` | chamber | `expected_dfl_seats`, `dfl_seats_p10`/`p90`, `p_dfl_majority`, `p_r_majority`, `p_tie`, `shift_vs_prior` |
+
+### State House and Senate
+
+District baselines use the current lines (drawn 2022): 2024 House, 2022
+House, 2022 Senate (`same_office`), and 2024 President / 2022 Governor summed
+to each district (`top_of_ticket`). 2018 and 2020 are left out because they
+used the old district lines. Swing is blank when either year was uncontested.
+
+**Control estimate** (`mnelect/legislature.py`): for each district,
+projected margin = counted share × live margin + uncounted share × prior.
+The prior is the district's 2024 presidential margin plus `shift_vs_prior`,
+which is how much better (+) or worse (−) the DFL is running tonight than
+Harris did in the districts counted so far. The uncounted share is simulated
+20,000 times with a shared statewide error (6 pts) and a per-district error
+(8 pts). Tune these in `config.toml` `[legislature]`. Uncontested seats go to
+the party that filed. Independent candidates are not modeled (flagged in
+`other_leading`). Fully counted districts are "Counted", not certified.
 
 **Sign convention:** margins are (DFL − R) / total votes. Positive swing is
 toward the DFL, negative is toward the GOP. Values are fractions (0.05 = 5 pts).
@@ -64,6 +84,8 @@ mnelect/common.py      name normalization, office/party mapping
 mnelect/baselines.py   download + normalize 2018–2024 history
 mnelect/sos.py         fetch / snapshot / parse SOS media files
 mnelect/compare.py     swing + turnout math
+mnelect/legislature.py State House/Senate swing + chamber-control estimate
+data/baselines/legislative_districts.csv  2022/2024 results by district (committed)
 mnelect/__main__.py    CLI
 data/baselines/precinct_results.csv   normalized history (committed)
 data/reference/counties.csv           SOS county id ↔ name ↔ FIPS

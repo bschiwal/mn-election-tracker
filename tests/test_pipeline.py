@@ -75,6 +75,42 @@ class PipelineTest(unittest.TestCase):
         self.assertTrue((c.swing_all.abs() < 1e-9).all())
         self.assertEqual(int(c.swing_reported.notna().sum()), 43)
 
+    def test_legislature_replay(self):
+        # Replay 2024 presidential results by district as if they were tonight's
+        # House/Senate races: odd-numbered districts fully counted, even ones
+        # 0 reported. Swing vs 2024 President must be 0, the shift 0, and
+        # counted seats must go to the presidential winner.
+        from mnelect import legislature as L
+        base = L.load_baselines()
+        pres = base[base.baseline_office == "PRESIDENT"]
+        lines = []
+        for r in pres.itertuples():
+            label = ("State Representative District " if r.chamber == "STATE_HOUSE"
+                     else "State Senator District ") + r.district
+            done = int(L.senate_of(r.district)) % 2 == 1
+            rep, tot = ("10", "10") if done else ("0", "10")
+            for party, v in (("DFL", r.DFL), ("R", r.R), ("LIB", r.OTHER)):
+                lines.append(";".join(["MN", "", "", "0100", label, r.district, "1", f"{party} cand",
+                                       "", "", party, rep, tot, str(v if done else 0), "0", "0"]))
+        lw = L.district_wide(L.parse("\n".join(lines)))
+        lw["reported"] = lw.precincts_reporting >= lw.precincts_total
+        self.assertEqual((lw.office == "STATE_HOUSE").sum(), 134)
+        self.assertEqual((lw.office == "STATE_SENATE").sum(), 67)
+        sw = L.district_swing(lw, base)
+        s = sw[(sw.baseline_office == "PRESIDENT") & sw.reported]
+        self.assertTrue((s.swing_reported.abs() < 1e-12).all())
+        self.assertTrue(((s.turnout_idx_reported - 1).abs() < 1e-12).all())
+        dist, ctl = L.project(lw, base, self.cfg)
+        self.assertTrue((ctl.shift_vs_prior.abs() < 1e-12).all())
+        counted = dist[dist.w >= 1]
+        self.assertTrue(((counted.p_dfl == 1) == (counted.margin > 0)).all())
+        # uncounted districts: projection falls back to the prior
+        open_ = dist[dist.w == 0]
+        self.assertTrue(((open_.projected_margin - open_.prior_margin).abs() < 1e-12).all())
+        h = ctl.set_index("chamber").loc["STATE_HOUSE"]
+        self.assertEqual(h.seats, 134)
+        self.assertTrue(0 <= h.p_dfl_majority + h.p_r_majority + h.p_tie <= 1 + 1e-9)
+
     def test_office_mapping(self):
         from mnelect.common import map_office
         self.assertEqual(map_office("U.S. Senator"), "US_SENATE")

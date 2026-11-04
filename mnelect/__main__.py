@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from . import baselines, compare, sos
+from . import baselines, compare, legislature, sos
 from .common import REFERENCE_DIR, load_config
 
 
@@ -40,6 +40,15 @@ def run_once(cfg: dict, from_dir: str | None = None) -> None:
                            ("live_margin", "baseline_margin", "swing_reported")})
         print(view.to_string(index=False))
 
+    leg = legislature.run(folder, cfg)
+    if leg:
+        compare.write(leg, folder.name)
+        for r in leg["chamber_control"].itertuples():
+            print(f"  {r.chamber}: DFL {r.expected_dfl_seats:.0f} / R {r.expected_r_seats:.0f} expected "
+                  f"(DFL 80% range {r.dfl_seats_p10}-{r.dfl_seats_p90}, need {r.majority})  "
+                  f"P(DFL maj) {r.p_dfl_majority:.0%}  P(R maj) {r.p_r_majority:.0%}  "
+                  f"P(tie) {r.p_tie:.0%}  | {r.districts_fully_reported}/{r.seats} districts fully counted")
+
 
 def main() -> None:
     ap = argparse.ArgumentParser(prog="mnelect")
@@ -53,6 +62,7 @@ def main() -> None:
 
     if a.cmd == "baselines":
         baselines.build(force_download=a.force)
+        legislature.build_baselines(force=a.force)
     elif a.cmd == "discover":
         for link in sos.discover(a.url):
             print(link)

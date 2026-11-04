@@ -20,6 +20,10 @@ precinct_files = ["allracesbyprecinct.txt"]
 # Confirmed live on Nov 3 2026, same 16-field layout as the precinct file.
 county_files = ["allracesbycounty.txt"]
 
+# State House (LegislativeByDistrict.txt) and State Senate (stsenate.txt),
+# district totals. Confirmed live Nov 3 2026.
+legislative_files = ["LegislativeByDistrict.txt", "stsenate.txt"]
+
 # Optional: precinct lookup table (County ID;Precinct ID;Precinct Name;...)
 # Needed to name-match the 2022 baseline (which has names but no codes).
 precinct_table_file = "PrctTbl.txt"
@@ -41,3 +45,18 @@ top_of_ticket = { "2024" = "PRESIDENT", "2022" = "GOVERNOR", "2020" = "PRESIDENT
 2020 = "https://raw.githubusercontent.com/openelections/openelections-data-mn/master/2020/20201103__mn__general__precinct.csv"
 2022 = "https://raw.githubusercontent.com/openelections/openelections-data-mn/master/2022/20221108__mn__general__precinct.csv"
 2024 = "https://raw.githubusercontent.com/MEDSL/2024-elections-official/main/individual_states/mn24.zip"
+
+[legislature]
+# State House / Senate control estimate (see mnelect/legislature.py).
+# Prior for the uncounted share of each district: this race's margin in the
+# district, shifted by how the DFL is running tonight vs it.
+prior_year = 2024
+prior_office = "PRESIDENT"
+# Error on the uncounted share of the vote (fractions: 0.03 = 3 pts).
+# statewide = shared by all districts in a draw; district = independent.
+sigma_statewide = 0.06
+sigma_district = 0.08
+draws = 20000
+seed = 0
+# MN automatic recount threshold for legislative races: 0.5%
+recount_margin = 0.005
