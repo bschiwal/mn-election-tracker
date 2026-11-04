@@ -82,7 +82,7 @@ def build(outputs: dict[str, pd.DataFrame] | None = None, stamp: str | None = No
     """Write data/output/dashboard.html. `outputs` defaults to the CSVs on disk."""
     o = dict(outputs or {})
     for name in ("statewide_summary", "statewide_results", "county_swing", "district_swing",
-                 "district_projection", "chamber_control"):
+                 "district_projection", "chamber_control", "turnout"):
         if name not in o:
             o[name] = _read(name)
     if stamp is None:
@@ -122,6 +122,9 @@ def build(outputs: dict[str, pd.DataFrame] | None = None, stamp: str | None = No
             "chamber", "district", "baseline_year", "baseline_office", "comparison", "margin",
             "margin_base", "swing_all", "swing_reported", "turnout_idx_all", "reported"]),
         "control": _records(o["chamber_control"], list(o["chamber_control"].columns)),
+        "turnout": _records(o["turnout"], [
+            "year", "precincts", "precincts_reported", "reg_7am", "reg_eday", "registered",
+            "ballots", "ballots_source", "turnout"]),
         "fips": json.loads(pd.read_csv(REFERENCE_DIR / "counties.csv")
                            .set_index("county_id")["county_fips"].astype(str).to_json()),
         "shapes": json.loads(COUNTY_SHAPES.read_text(encoding="utf-8")) if COUNTY_SHAPES.exists() else None,

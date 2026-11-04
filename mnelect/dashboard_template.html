@@ -12,6 +12,7 @@
   --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11,11,11,0.10);
   --dfl: #2a78d6; --r: #e34948; --mid: #f0efec; --tossup: #b9b8b0;
   --seq: #6250d6; --nodata: #e8e7e2;
+  --up: #2e9e5b; --down: #e0b400; --white: #ffffff;
   --font: system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 @media (prefers-color-scheme: dark) {
@@ -22,6 +23,7 @@
     --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
     --dfl: #3987e5; --r: #e66767; --mid: #383835; --tossup: #6b6a65;
     --seq: #9085e9; --nodata: #2a2a28;
+    --up: #4cbf7a; --down: #f0c43a; --white: #ffffff;
   }
 }
 :root[data-theme="dark"] {
@@ -31,6 +33,7 @@
   --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
   --dfl: #3987e5; --r: #e66767; --mid: #383835; --tossup: #6b6a65;
   --seq: #9085e9; --nodata: #2a2a28;
+    --up: #4cbf7a; --down: #f0c43a; --white: #ffffff;
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--page); color: var(--ink); font: 14px/1.45 var(--font); }
@@ -111,7 +114,8 @@ tbody tr:hover { background: var(--surface-2); }
 /* filters + map */
 .filters { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin-bottom: 12px; }
 .filters label { color: var(--ink-2); font-size: 13px; display: flex; gap: 6px; align-items: center; }
-.mapwrap { display: grid; grid-template-columns: minmax(300px, 520px) 1fr; gap: 16px; align-items: start; }
+.mapwrap { display: grid; grid-template-columns: minmax(300px, 480px) minmax(0, 1fr) 250px; gap: 16px; align-items: start; }
+@media (max-width: 1200px) { .mapwrap { grid-template-columns: minmax(300px, 480px) minmax(0, 1fr); } }
 @media (max-width: 900px) { .mapwrap { grid-template-columns: 1fr; } }
 svg.map path { stroke: var(--surface-1); stroke-width: 0.8; cursor: default; }
 svg.map path:hover, svg.map path:focus { stroke: var(--ink); stroke-width: 1.6; outline: none; }
@@ -119,6 +123,19 @@ svg.map path:hover, svg.map path:focus { stroke: var(--ink); stroke-width: 1.6; 
 .scale .ramp { height: 10px; width: 220px; border-radius: 3px; }
 .chip { display: inline-block; font-size: 12px; padding: 0 7px; border-radius: 4px; line-height: 18px; }
 .flag { font-size: 11px; color: var(--ink-2); border: 1px solid var(--axis); border-radius: 4px; padding: 0 4px; margin-left: 4px; }
+
+/* turnout */
+.gauge-card { display: flex; flex-wrap: wrap; gap: 12px 36px; align-items: center; }
+.gauge text { fill: var(--ink-2); font-size: 11px; }
+.gauge .big { fill: var(--ink); font-size: 34px; font-weight: 650; }
+.gauge-stats { display: grid; grid-template-columns: repeat(2, auto); gap: 14px 36px; }
+.with-side { display: grid; grid-template-columns: minmax(0, 1fr) 250px; gap: 16px; align-items: start; }
+.side { position: sticky; top: 72px; }
+@media (max-width: 1000px) { .with-side { grid-template-columns: 1fr; } .side { position: static; } }
+.tbox h3 { margin: 0 0 6px; font-size: 14px; }
+.tbox td, .tbox th { padding: 4px 4px; }
+.tbox tr.hl td { background: var(--surface-2); font-weight: 600; }
+.tbox .note { margin: 8px 0 0; }
 
 #tip { position: fixed; z-index: 20; pointer-events: none; background: var(--surface-1); color: var(--ink);
   border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 12px;
@@ -138,6 +155,11 @@ svg.map path:hover, svg.map path:focus { stroke: var(--ink); stroke-width: 1.6; 
 </header>
 <main>
   <section>
+    <h2>Turnout</h2>
+    <div class="card gauge-card" id="gauge"></div>
+  </section>
+
+  <section>
     <h2>Legislature: who controls the House and Senate?</h2>
     <p class="sub">Each bar is one seat. Seats are split by who is ahead (DFL left, Republicans right), then ordered from most reported at the outer edges to least reported at the center. Darker = bigger margin; the fill rises as precincts report. The black line marks the halfway point.
       Estimates blend votes counted so far with each district's 2024 presidential result, adjusted for how the DFL is running tonight.</p>
@@ -148,7 +170,7 @@ svg.map path:hover, svg.map path:focus { stroke: var(--ink); stroke-width: 1.6; 
     <h2>Statewide races</h2>
     <p class="sub">Swing compares tonight with past elections, using only counties that are fully counted, so early numbers aren't skewed by which areas report first.
       Positive = toward the DFL.</p>
-    <div class="races" id="races"></div>
+    <div class="with-side"><div class="races" id="races"></div><div class="card tbox side" id="tbox-races"></div></div>
   </section>
 
   <section>
@@ -168,6 +190,7 @@ svg.map path:hover, svg.map path:focus { stroke: var(--ink); stroke-width: 1.6; 
     <div class="mapwrap">
       <div class="card"><svg class="map" id="map" role="img" aria-label="Minnesota county map"></svg><div class="scale" id="scale"></div></div>
       <div class="tablewrap"><table id="ctable"></table></div>
+      <div class="card tbox" id="tbox-counties"></div>
     </div>
   </section>
 
@@ -207,6 +230,10 @@ function divColor(v, lim) { if (!isNum(v)) return "var(--nodata)"; const t = Mat
   return mix(v >= 0 ? "--dfl" : "--r", "--mid", 0.12 + 0.88 * t); }
 function seqColor(v, lo, hi) { if (!isNum(v)) return "var(--nodata)"; const t = Math.max(0, Math.min((v - lo) / (hi - lo), 1));
   return mix("--seq", "--mid", 0.08 + 0.92 * t); }
+// two-sided: yellow below mid, white at mid, green above
+function idxColor(v, lo, mid, hi) { if (!isNum(v)) return "var(--nodata)";
+  if (v >= mid) return mix("--up", "--white", Math.min((v - mid) / (hi - mid), 1));
+  return mix("--down", "--white", Math.min((mid - v) / (mid - lo), 1)); }
 function dbar(v, lim = 0.15) { if (!isNum(v)) return '<span class="note">–</span>';
   const w = Math.min(Math.abs(v) / lim, 1) * 50;
   return `<span class="dbar"><span style="${v >= 0 ? "left:50%" : `left:${50 - w}%`};width:${w}%;background:var(${v >= 0 ? "--dfl" : "--r"});border-radius:${v >= 0 ? "0 4px 4px 0" : "4px 0 0 4px"}"></span></span>`; }
@@ -239,6 +266,50 @@ function header() {
   const prec = s ? `${nf.format(s.precincts_reported)} of ${nf.format(s.precincts)} precincts (${pct(s.precincts_reported / s.precincts)})` : "";
   const mode = s && s.counties != null ? ' <span class="badge">County-level data: SOS precinct file not posted yet</span>' : "";
   $("#meta").innerHTML = `Updated ${when} · ${prec}${mode}`;
+}
+
+// ---------- turnout
+const LIVE_YEAR = 2026;
+const T = (D.turnout || []).slice().sort((a, b) => b.year - a.year);
+const tLive = T.find(r => r.year === LIVE_YEAR);
+const midterms = T.filter(r => r.year !== LIVE_YEAR && r.year % 4 === 2);
+const ptsDiff = (a, b) => isNum(a) && isNum(b) ? `${a >= b ? "+" : "−"}${Math.abs((a - b) * 100).toFixed(1)} pts` : "–";
+function gauge() {
+  const el = $("#gauge");
+  if (!tLive) { el.innerHTML = '<p class="note">No turnout data yet (SOS precinct statistics file not fetched).</p>'; return; }
+  const cx = 130, cy = 120, R = 92, sw = 18;
+  const at = (t, r) => { const a = Math.PI * (1 - Math.max(0, Math.min(t, 1))); return [cx + r * Math.cos(a), cy - r * Math.sin(a)]; };
+  const arc = `M${cx - R},${cy} A${R},${R} 0 0 1 ${cx + R},${cy}`;
+  const ticks = midterms.map(m => { const [x1, y1] = at(m.turnout, R - sw / 2 - 3), [x2, y2] = at(m.turnout, R + sw / 2 + 3), [lx, ly] = at(m.turnout, R + sw / 2 + 8);
+    return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="var(--ink)" stroke-width="2"><title>${m.year}: ${pct(m.turnout, 1)}</title></line>
+      <text x="${lx}" y="${ly}" text-anchor="${lx >= cx ? "start" : "end"}">${m.year} ${pct(m.turnout)}</text>`; }).join("");
+  const partial = tLive.precincts_reported < tLive.precincts;
+  el.innerHTML = `
+    <svg class="gauge" viewBox="0 0 260 140" width="300" role="img" aria-label="Turnout ${pct(tLive.turnout, 1)} of registered voters">
+      <path d="${arc}" fill="none" stroke="var(--nodata)" stroke-width="${sw}"/>
+      <path d="${arc}" fill="none" stroke="var(--seq)" stroke-width="${sw}" pathLength="100" stroke-dasharray="${Math.min(tLive.turnout, 1) * 100} 100"/>
+      ${ticks}
+      <text x="${cx - R}" y="${cy + 16}" text-anchor="middle">0%</text><text x="${cx + R}" y="${cy + 16}" text-anchor="middle">100%</text>
+      <text class="big" x="${cx}" y="${cy - 8}" text-anchor="middle">${pct(tLive.turnout, 1)}</text>
+      <text x="${cx}" y="${cy + 12}" text-anchor="middle">of registered voters</text>
+    </svg>
+    <div class="gauge-stats">
+      <div><div class="hero">${nf.format(tLive.ballots)}</div><div class="hero-label">ballots cast${partial ? " so far" : ""}</div></div>
+      <div><div class="stat">${nf.format(tLive.registered)}</div><div class="hero-label">registered (7am + same-day)</div></div>
+      ${midterms.map(m => `<div><div class="stat">${ptsDiff(tLive.turnout, m.turnout)}</div><div class="hero-label">vs ${m.year} midterm (${pct(m.turnout, 1)})</div></div>`).join("")}
+    </div>
+    <p class="note" style="flex-basis:100%;margin:0">${partial
+      ? `SOS turnout stats cover ${nf.format(tLive.precincts_reported)} of ${nf.format(tLive.precincts)} precincts so far. ${/largest/.test(tLive.ballots_source) ? "Ballots shown are the vote total in the largest statewide race (slightly undercounts voters who skipped it). " : ""}Same-day registrations are estimated for precincts not yet in the stats file.`
+      : "From the SOS precinct statistics file (unofficial until canvass)."}
+      Turnout here is of registered voters. SOS's official figure uses eligible voters and is lower.</p>`;
+}
+function tbox(el, hl) {
+  if (!T.length) { el.style.display = "none"; return; }
+  el.innerHTML = `<h3>Turnout by election</h3>
+    <table><thead><tr><th>Year</th><th class="n">Ballots cast</th><th class="n">Turnout</th></tr></thead>
+    <tbody>${T.map(r => `<tr class="${hl.includes(r.year) ? "hl" : ""}"><td>${r.year}${r.year === LIVE_YEAR && r.precincts_reported < r.precincts ? ' <span class="note">so far</span>' : ""}</td>
+      <td class="n">${nf.format(r.ballots)}</td><td class="n">${pct(r.turnout, 1)}</td></tr>`).join("")}</tbody></table>
+    <p class="note">Turnout = ballots ÷ registered voters (7am + same-day registrations). ${hl.length > 1 ? "Highlighted: tonight and the comparison year." : ""}</p>`;
 }
 
 // ---------- legislature control
@@ -365,7 +436,7 @@ const METRICS = {
   swing_all: { label: "Swing so far", kind: "div", lim: 0.15, fmt: pts },
   margin: { label: "Margin tonight", kind: "div", lim: 0.5, fmt: pts },
   margin_base: { label: "Margin then", kind: "div", lim: 0.5, fmt: pts },
-  turnout_idx_all: { label: "Votes vs then", kind: "seq", lo: 0, hi: 1.2, fmt: v => pct(v) },
+  turnout_idx_all: { label: "Votes vs then", kind: "idx", lo: 0.6, mid: 1, hi: 1.2, fmt: v => pct(v) },
   pct_in: { label: "Precincts counted", kind: "seq", lo: 0, hi: 1, fmt: v => pct(v) },
 };
 function countySetup() {
@@ -388,10 +459,11 @@ function baseOptions() {
 }
 function counties() {
   const [y, bo] = S.base.split("|");
+  tbox($("#tbox-counties"), [LIVE_YEAR, +y]);
   const rows = D.county.filter(r => r.live_office === S.race && String(r.baseline_year) === y && r.baseline_office === bo)
     .map(r => ({ ...r, pct_in: r.precincts ? r.precincts_reported / r.precincts : null }));
   const M = METRICS[S.metric];
-  const color = v => M.kind === "div" ? divColor(v, M.lim) : seqColor(v, M.lo, M.hi);
+  const color = v => M.kind === "div" ? divColor(v, M.lim) : M.kind === "idx" ? idxColor(v, M.lo, M.mid, M.hi) : seqColor(v, M.lo, M.hi);
   // map
   const svg = $("#map");
   if (D.shapes) {
@@ -407,6 +479,8 @@ function counties() {
   }
   const sc = $("#scale");
   if (M.kind === "div") sc.innerHTML = `<span>R +${M.lim * 100}</span><span class="ramp" style="background:linear-gradient(90deg, var(--r), var(--mid), var(--dfl))"></span><span>DFL +${M.lim * 100}</span><span class="note">${S.metric === "swing_reported" ? "Gray: county not fully counted" : ""}</span>`;
+  else if (M.kind === "idx") { const at = Math.round((M.mid - M.lo) / (M.hi - M.lo) * 100);
+    sc.innerHTML = `<span>${M.fmt(M.lo)} or less</span><span class="ramp" style="background:linear-gradient(90deg, var(--down), var(--white) ${at}%, var(--up))"></span><span>${M.fmt(M.hi)}+</span><span class="note">White = ${M.fmt(M.mid)}</span>`; }
   else sc.innerHTML = `<span>${M.fmt(M.lo)}</span><span class="ramp" style="background:linear-gradient(90deg, ${mix("--seq", "--mid", .08)}, var(--seq))"></span><span>${M.fmt(M.hi)}+</span>`;
   // table
   const cols = [["county_name", "County"], ["pct_in", "Counted", "n", v => pct(v)], ["margin", "Margin tonight", "n", pts],
@@ -472,7 +546,7 @@ function tick() {
 $("#pause").onclick = () => { S.paused = !S.paused; left = 60; save(); tick(); };
 
 // ---------- go
-header(); control(); races(); countySetup(); counties(); districtSetup(); districts();
+header(); gauge(); control(); races(); tbox($("#tbox-races"), [LIVE_YEAR]); countySetup(); counties(); districtSetup(); districts();
 scrollTo(0, +sessionStorage.getItem("mnScroll") || 0);
 tick(); setInterval(tick, 1000);
 </script>

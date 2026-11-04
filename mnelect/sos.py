@@ -48,8 +48,9 @@ def snapshot(cfg: dict) -> Path:
     folder.mkdir(parents=True, exist_ok=True)
     names = (list(live.get("precinct_files", [])) + list(live.get("county_files", []))
              + list(live.get("legislative_files", [])))
-    if live.get("precinct_table_file"):
-        names.append(live["precinct_table_file"])
+    for key in ("precinct_table_file", "stats_file"):
+        if live.get(key):
+            names.append(live[key])
     for name in names:
         url = live["base_url"].rstrip("/") + "/" + name
         try:

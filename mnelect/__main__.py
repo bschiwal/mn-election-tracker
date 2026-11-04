@@ -1,6 +1,6 @@
 """Command line entry point.
 
-    python -m mnelect baselines            # download + normalize 2018-2024 history (once)
+    python -m mnelect baselines            # download + normalize 2018-2024 history + turnout (once)
     python -m mnelect discover URL         # list result files on an SOS index page
     python -m mnelect once                 # fetch live SOS files once and write outputs
     python -m mnelect once --from-dir DIR  # re-run on a saved snapshot (no network)
@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from . import baselines, compare, dashboard, legislature, sos
+from . import baselines, compare, dashboard, legislature, sos, turnout
 from .common import REFERENCE_DIR, load_config
 
 
@@ -34,12 +34,18 @@ def run_once(cfg: dict, from_dir: str | None = None) -> None:
               f"offices: {sorted(live['office'].unique())}")
         out = compare.run_county(live, base, cfg, counties)
     out["statewide_results"] = compare.statewide_results(live)
+    out["turnout"] = turnout.run(folder, cfg, out["statewide_results"])
     compare.write(out, folder.name)
     s = out["statewide_summary"]
     if len(s):
         view = s.assign(**{c: (s[c] * 100).round(1) for c in
                            ("live_margin", "baseline_margin", "swing_reported")})
         print(view.to_string(index=False))
+    t = out["turnout"]
+    if len(t):
+        r = t.iloc[0]
+        print(f"  turnout {r.year}: {r.ballots:,} ballots, {r.turnout:.1%} of registered "
+              f"({r.precincts_reported:,}/{r.precincts:,} precincts in SOS stats)")
 
     leg = legislature.run(folder, cfg)
     if leg:
@@ -70,6 +76,7 @@ def main() -> None:
     if a.cmd == "baselines":
         baselines.build(force_download=a.force)
         legislature.build_baselines(force=a.force)
+        turnout.build_baselines(cfg, force=a.force)
     elif a.cmd == "discover":
         for link in sos.discover(a.url):
             print(link)

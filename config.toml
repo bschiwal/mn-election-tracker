@@ -28,6 +28,10 @@ legislative_files = ["LegislativeByDistrict.txt", "stsenate.txt"]
 # Needed to name-match the 2022 baseline (which has names but no codes).
 precinct_table_file = "PrctTbl.txt"
 
+# Precinct statistics: registered voters, same-day registrations, ballots cast.
+# Used for turnout. Confirmed live Nov 4 2026 (it updates slower than results).
+stats_file = "pctstats.txt"
+
 # Seconds between polls in `poll` mode. Be polite to the SOS server.
 poll_seconds = 300
 
@@ -38,6 +42,13 @@ years = [2024, 2022, 2020, 2018]
 # "Top of ticket" race per baseline year. Every live race is compared to
 # the same office (when it was on the ballot) AND to that year's top race.
 top_of_ticket = { "2024" = "PRESIDENT", "2022" = "GOVERNOR", "2020" = "PRESIDENT", "2018" = "GOVERNOR" }
+
+# Precinct statistics for past elections (turnout), same layout as [live].stats_file.
+[baselines.stats_sources]
+2018 = "https://electionresultsfiles.sos.mn.gov/20181106/pctstats.txt"
+2020 = "https://electionresultsfiles.sos.mn.gov/20201103/pctstats.txt"
+2022 = "https://electionresultsfiles.sos.mn.gov/20221108/pctstats.txt"
+2024 = "https://electionresultsfiles.sos.mn.gov/20241105/pctstats.txt"
 
 [baselines.sources]
 # All reachable without the SOS site (GitHub-hosted, public).
