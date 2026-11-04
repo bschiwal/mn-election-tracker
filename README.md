@@ -31,6 +31,22 @@ python -m mnelect poll             # keep pulling every 5 min
 Before the first live pull, **read PLAN.md step 1**: the SOS file names in
 `config.toml` couldn't be verified from the build machine.
 
+## Dashboard
+
+`data/output/dashboard.html` is rebuilt after every `once` / `poll` run.
+Open it in a browser (double-click; no server or internet needed). It reloads
+itself every 60 seconds and keeps your filters. It shows:
+
+- **Legislature:** House and Senate majority odds, expected seats, and a seat
+  strip colored by rating (hover a square for the district).
+- **Statewide races:** candidates, vote share, and swing vs each past year.
+- **Counties:** a map plus sortable table; pick race, comparison year, and metric.
+- **Legislative districts:** every seat with rating, win chance, margins,
+  and swing vs 2024 President; filter to competitive seats or search.
+
+Rebuild by hand with `python -m mnelect dashboard`. Layout and styling live in
+`mnelect/dashboard_template.html`.
+
 ## Output files (`data/output/`)
 
 | File | Grain | Key columns |
@@ -40,6 +56,7 @@ Before the first live pull, **read PLAN.md step 1**: the SOS file names in
 | `precinct_swing.csv` | precinct × race × baseline | `margin`, `margin_base`, `swing`, `turnout_idx`, `reported`, `matched` (only once SOS posts the precinct file) |
 | `district_swing.csv` | House/Senate district × baseline | same columns as `county_swing`, plus `contested`, `contested_base`, candidates |
 | `district_projection.csv` | House/Senate district | `status`, `p_dfl`, `projected_margin`, `w` (share of precincts in), `margin`, `prior_margin`, `recount_range` |
+| `statewide_results.csv` | candidate | `office`, `candidate`, `party`, `votes`, `pct` |
 | `chamber_control.csv` | chamber | `expected_dfl_seats`, `dfl_seats_p10`/`p90`, `p_dfl_majority`, `p_r_majority`, `p_tie`, `shift_vs_prior` |
 
 ### State House and Senate
@@ -85,6 +102,8 @@ mnelect/baselines.py   download + normalize 2018–2024 history
 mnelect/sos.py         fetch / snapshot / parse SOS media files
 mnelect/compare.py     swing + turnout math
 mnelect/legislature.py State House/Senate swing + chamber-control estimate
+mnelect/dashboard.py   builds data/output/dashboard.html (template: dashboard_template.html)
+data/reference/mn_county_paths.json   county outlines for the map
 data/baselines/legislative_districts.csv  2022/2024 results by district (committed)
 mnelect/__main__.py    CLI
 data/baselines/precinct_results.csv   normalized history (committed)

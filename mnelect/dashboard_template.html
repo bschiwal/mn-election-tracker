@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MN 2026 Election Tracker</title>
+<style>
+:root {
+  color-scheme: light;
+  --page: #f9f9f7; --surface-1: #fcfcfb; --surface-2: #f3f2ee;
+  --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
+  --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11,11,11,0.10);
+  --dfl: #2a78d6; --r: #e34948; --mid: #f0efec; --tossup: #b9b8b0;
+  --seq: #6250d6; --nodata: #e8e7e2;
+  --font: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface-1: #1a1a19; --surface-2: #232322;
+    --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+    --dfl: #3987e5; --r: #e66767; --mid: #383835; --tossup: #6b6a65;
+    --seq: #9085e9; --nodata: #2a2a28;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface-1: #1a1a19; --surface-2: #232322;
+  --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
+  --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+  --dfl: #3987e5; --r: #e66767; --mid: #383835; --tossup: #6b6a65;
+  --seq: #9085e9; --nodata: #2a2a28;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--ink); font: 14px/1.45 var(--font); }
+header { position: sticky; top: 0; z-index: 5; background: var(--page); border-bottom: 1px solid var(--border);
+  padding: 12px 24px; display: flex; flex-wrap: wrap; gap: 8px 24px; align-items: baseline; }
+header h1 { font-size: 18px; margin: 0; font-weight: 650; }
+header .meta { color: var(--ink-2); }
+header .spacer { flex: 1; }
+button, select, input { font: inherit; color: var(--ink); background: var(--surface-1);
+  border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; }
+button { cursor: pointer; }
+button:hover, select:hover { background: var(--surface-2); }
+main { max-width: 1280px; margin: 0 auto; padding: 16px 24px 64px; }
+section { margin-top: 28px; }
+h2 { font-size: 16px; margin: 0 0 4px; font-weight: 650; }
+.sub { color: var(--ink-2); margin: 0 0 12px; }
+.note { color: var(--muted); font-size: 12px; }
+.card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(440px, 1fr)); gap: 16px; }
+.badge { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 999px;
+  background: var(--surface-2); color: var(--ink-2); border: 1px solid var(--border); }
+.dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; vertical-align: 0; }
+.dot.dfl { background: var(--dfl); } .dot.r { background: var(--r); } .dot.oth { background: var(--tossup); }
+
+/* control cards */
+.ctl-top { display: flex; gap: 28px; flex-wrap: wrap; align-items: flex-end; margin: 6px 0 14px; }
+.hero { font-size: 40px; font-weight: 650; line-height: 1; }
+.hero-label { color: var(--ink-2); font-size: 13px; margin-top: 4px; }
+.stat { font-size: 20px; font-weight: 600; line-height: 1.1; }
+.strip { position: relative; display: grid; gap: 2px; margin: 18px 0 6px; }
+.seat { height: 22px; border-radius: 3px; cursor: default; outline-offset: 1px; }
+.seat:focus-visible { outline: 2px solid var(--ink); }
+.majline { position: absolute; top: -12px; bottom: -4px; width: 0; border-left: 2px solid var(--ink); }
+.majline span { position: absolute; top: -6px; left: 4px; font-size: 11px; color: var(--ink-2); white-space: nowrap; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--ink-2); margin-top: 8px; }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 5px; vertical-align: -2px; }
+.counts { display: grid; grid-template-columns: repeat(4, auto); gap: 2px 18px; font-size: 13px; margin-top: 12px; color: var(--ink-2); }
+.counts b { color: var(--ink); font-weight: 600; }
+
+/* statewide */
+.races { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 16px; }
+.race h3 { margin: 0; font-size: 15px; display: flex; justify-content: space-between; align-items: baseline; }
+.cands { margin: 10px 0 8px; display: grid; grid-template-columns: 1fr auto auto; gap: 2px 14px; font-size: 13px; }
+.cands .num { text-align: right; font-variant-numeric: tabular-nums; color: var(--ink-2); }
+.cands .lead { font-weight: 600; }
+.race table { table-layout: auto; }
+.race th, .race td { padding: 4px 4px; }
+.race td:first-child { white-space: normal; }
+.race td:first-child .note { display: block; line-height: 1.1; }
+.race .dbar { width: 56px; }
+.sharebar { display: flex; gap: 2px; height: 10px; margin: 4px 0 12px; }
+.sharebar div { height: 100%; }
+.sharebar div:first-child { border-radius: 4px 0 0 4px; } .sharebar div:last-child { border-radius: 0 4px 4px 0; }
+
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { padding: 5px 8px; text-align: left; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+th { font-weight: 600; color: var(--ink-2); font-size: 12px; position: sticky; top: 0; background: var(--surface-1); }
+th.sort { cursor: pointer; user-select: none; } th.sort:hover { color: var(--ink); }
+td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
+tbody tr:hover { background: var(--surface-2); }
+.tablewrap { max-height: 520px; overflow: auto; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-1); }
+
+/* diverging inline bar for swing */
+.dbar { position: relative; width: 120px; height: 10px; display: inline-block; vertical-align: middle; }
+.dbar::before { content: ""; position: absolute; left: 50%; top: -2px; bottom: -2px; border-left: 1px solid var(--axis); }
+.dbar span { position: absolute; top: 0; height: 100%; }
+.pbar { position: relative; width: 80px; height: 8px; display: inline-block; vertical-align: middle; background: var(--r); border-radius: 4px; overflow: hidden; }
+.pbar span { position: absolute; left: 0; top: 0; bottom: 0; background: var(--dfl); border-right: 2px solid var(--surface-1); }
+
+/* filters + map */
+.filters { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin-bottom: 12px; }
+.filters label { color: var(--ink-2); font-size: 13px; display: flex; gap: 6px; align-items: center; }
+.mapwrap { display: grid; grid-template-columns: minmax(300px, 520px) 1fr; gap: 16px; align-items: start; }
+@media (max-width: 900px) { .mapwrap { grid-template-columns: 1fr; } }
+svg.map path { stroke: var(--surface-1); stroke-width: 0.8; cursor: default; }
+svg.map path:hover, svg.map path:focus { stroke: var(--ink); stroke-width: 1.6; outline: none; }
+.scale { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-2); margin-top: 8px; }
+.scale .ramp { height: 10px; width: 220px; border-radius: 3px; }
+.chip { display: inline-block; font-size: 12px; padding: 0 7px; border-radius: 4px; line-height: 18px; }
+.flag { font-size: 11px; color: var(--ink-2); border: 1px solid var(--axis); border-radius: 4px; padding: 0 4px; margin-left: 4px; }
+
+#tip { position: fixed; z-index: 20; pointer-events: none; background: var(--surface-1); color: var(--ink);
+  border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 12px;
+  box-shadow: 0 4px 16px rgba(0,0,0,.15); max-width: 300px; display: none; }
+#tip b { font-weight: 600; } #tip .row { display: flex; justify-content: space-between; gap: 14px; }
+#tip .row span:last-child { font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Minnesota 2026 General Election</h1>
+  <span class="meta" id="meta"></span>
+  <span class="spacer"></span>
+  <span class="note" id="refresh"></span>
+  <button id="pause" type="button">Pause refresh</button>
+  <button id="theme" type="button">Theme</button>
+</header>
+<main>
+  <section>
+    <h2>Legislature: who controls the House and Senate?</h2>
+    <p class="sub">Each square is one seat, sorted from most likely DFL (left) to most likely Republican (right). The black line marks the halfway point.
+      Estimates blend votes counted so far with each district's 2024 presidential result, adjusted for how the DFL is running tonight.</p>
+    <div class="grid2" id="control"></div>
+  </section>
+
+  <section>
+    <h2>Statewide races</h2>
+    <p class="sub">Swing compares tonight with past elections, using only counties that are fully counted, so early numbers aren't skewed by which areas report first.
+      Positive = toward the DFL.</p>
+    <div class="races" id="races"></div>
+  </section>
+
+  <section>
+    <h2>Counties</h2>
+    <div class="filters">
+      <label>Race <select id="c-race"></select></label>
+      <label>Compare with <select id="c-base"></select></label>
+      <label>Show <select id="c-metric">
+        <option value="swing_reported">Swing (fully counted counties)</option>
+        <option value="swing_all">Swing so far (partial counts)</option>
+        <option value="margin">Margin tonight</option>
+        <option value="margin_base">Margin in comparison year</option>
+        <option value="turnout_idx_all">Votes vs comparison year</option>
+        <option value="pct_in">Precincts counted</option>
+      </select></label>
+    </div>
+    <div class="mapwrap">
+      <div class="card"><svg class="map" id="map" role="img" aria-label="Minnesota county map"></svg><div class="scale" id="scale"></div></div>
+      <div class="tablewrap"><table id="ctable"></table></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Legislative districts</h2>
+    <div class="filters">
+      <label>Chamber <select id="d-ch"><option value="STATE_HOUSE">State House</option><option value="STATE_SENATE">State Senate</option></select></label>
+      <label>Rating <select id="d-status"><option value="">All</option><option value="competitive">Competitive (Lean + Tossup)</option></select></label>
+      <label>Search <input id="d-q" type="search" placeholder="District or candidate" size="22"></label>
+      <span class="note" id="d-count"></span>
+    </div>
+    <div class="tablewrap" style="max-height: 640px"><table id="dtable"></table></div>
+    <p class="note">"Counted" = all precincts in (unofficial, not certified). Win chance only covers the uncounted share of the vote.
+      "vs 2024 Pres" compares the count so far with Harris–Trump in the same district. Independent candidates aren't modeled.</p>
+  </section>
+</main>
+<div id="tip" role="tooltip"></div>
+
+<script>
+const D = /*__DATA__*/null;
+
+// ---------- helpers
+const $ = s => document.querySelector(s);
+const OFFICE = { US_SENATE: "U.S. Senate", GOVERNOR: "Governor", ATTORNEY_GENERAL: "Attorney General",
+  SECRETARY_OF_STATE: "Secretary of State", STATE_AUDITOR: "State Auditor", PRESIDENT: "President",
+  STATE_HOUSE: "State House", STATE_SENATE: "State Senate" };
+const ORDER = ["US_SENATE", "GOVERNOR", "ATTORNEY_GENERAL", "SECRETARY_OF_STATE", "STATE_AUDITOR"];
+const nf = new Intl.NumberFormat("en-US");
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const isNum = v => typeof v === "number" && isFinite(v);
+const pts = v => isNum(v) ? (Math.abs(v * 100) < 0.05 ? "0.0" : (v > 0 ? "DFL +" : "R +") + Math.abs(v * 100).toFixed(1)) : "–";
+const pct = (v, d = 0) => isNum(v) ? (v * 100).toFixed(d) + "%" : "–";
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const baseLabel = r => `${r.baseline_year} ${OFFICE[r.baseline_office] || r.baseline_office}`;
+const mix = (a, b, t) => `color-mix(in oklab, var(${a}) ${Math.round(t * 100)}%, var(${b}))`;
+function divColor(v, lim) { if (!isNum(v)) return "var(--nodata)"; const t = Math.min(Math.abs(v) / lim, 1);
+  return mix(v >= 0 ? "--dfl" : "--r", "--mid", 0.12 + 0.88 * t); }
+function seqColor(v, lo, hi) { if (!isNum(v)) return "var(--nodata)"; const t = Math.max(0, Math.min((v - lo) / (hi - lo), 1));
+  return mix("--seq", "--mid", 0.08 + 0.92 * t); }
+function dbar(v, lim = 0.15) { if (!isNum(v)) return '<span class="note">–</span>';
+  const w = Math.min(Math.abs(v) / lim, 1) * 50;
+  return `<span class="dbar"><span style="${v >= 0 ? "left:50%" : `left:${50 - w}%`};width:${w}%;background:var(${v >= 0 ? "--dfl" : "--r"});border-radius:${v >= 0 ? "0 4px 4px 0" : "4px 0 0 4px"}"></span></span>`; }
+
+// tooltip
+const tip = $("#tip");
+function showTip(html, x, y) { tip.innerHTML = html; tip.style.display = "block";
+  const r = tip.getBoundingClientRect(); let L = x + 14, T = y + 14;
+  if (L + r.width > innerWidth - 8) L = x - r.width - 14; if (T + r.height > innerHeight - 8) T = y - r.height - 14;
+  tip.style.left = L + "px"; tip.style.top = T + "px"; }
+function hideTip() { tip.style.display = "none"; }
+function bindTip(el, fn) {
+  el.addEventListener("mousemove", e => showTip(fn(), e.clientX, e.clientY));
+  el.addEventListener("mouseleave", hideTip);
+  el.addEventListener("focus", () => { const b = el.getBoundingClientRect(); showTip(fn(), b.right, b.top); });
+  el.addEventListener("blur", hideTip); }
+const row = (k, v) => `<div class="row"><span>${k}</span><span>${v}</span></div>`;
+
+// ---------- state (kept across auto-refresh)
+const S = Object.assign({ race: "US_SENATE", base: "", metric: "swing_reported", ch: "STATE_HOUSE", status: "", q: "",
+  csort: "county_name", cdir: 1, dsort: "close", ddir: 1, paused: false }, JSON.parse(sessionStorage.getItem("mnS") || "{}"));
+const save = () => sessionStorage.setItem("mnS", JSON.stringify(S));
+
+// ---------- header
+function header() {
+  const m = /^(\d{4})(\d\d)(\d\d)T(\d\d)(\d\d)(\d\d)Z$/.exec(D.stamp || "");
+  const t = m ? new Date(Date.UTC(+m[1], m[2] - 1, +m[3], +m[4], +m[5], +m[6])) : null;
+  const when = t ? t.toLocaleString("en-US", { timeZone: "America/Chicago", hour: "numeric", minute: "2-digit", month: "short", day: "numeric" }) + " CT" : "unknown";
+  const s = D.summary[0];
+  const prec = s ? `${nf.format(s.precincts_reported)} of ${nf.format(s.precincts)} precincts (${pct(s.precincts_reported / s.precincts)})` : "";
+  const mode = s && s.counties != null ? ' <span class="badge">County-level data: SOS precinct file not posted yet</span>' : "";
+  $("#meta").innerHTML = `Updated ${when} · ${prec}${mode}`;
+}
+
+// ---------- legislature control
+const RATINGS = [
+  ["Counted DFL", "--dfl", 1], ["Uncontested DFL", "--dfl", 1], ["Likely DFL", "--dfl", .7], ["Lean DFL", "--dfl", .42],
+  ["Tossup", null, 0], ["Lean R", "--r", .42], ["Likely R", "--r", .7], ["Counted R", "--r", 1], ["Uncontested R", "--r", 1]];
+const RCOLOR = Object.fromEntries(RATINGS.map(([k, v, t]) => [k, v ? (t === 1 ? `var(${v})` : mix(v, "--mid", t)) : "var(--tossup)"]));
+function control() {
+  const el = $("#control"); el.innerHTML = "";
+  for (const c of D.control) {
+    const seats = D.districts.filter(d => d.chamber === c.chamber)
+      .sort((a, b) => b.p_dfl - a.p_dfl || (b.projected_margin ?? 0) - (a.projected_margin ?? 0));
+    const fav = c.p_dfl_majority >= c.p_r_majority ? ["DFL", c.p_dfl_majority] : ["Republicans", c.p_r_majority];
+    const card = document.createElement("div"); card.className = "card";
+    const cnt = k => seats.filter(s => s.status === k).length;
+    card.innerHTML = `
+      <h2>${OFFICE[c.chamber]} <span class="note">· ${c.seats} seats · ${c.majority} for a majority</span></h2>
+      <div class="ctl-top">
+        <div><div class="hero">${pct(fav[1])}</div><div class="hero-label">chance ${fav[0]} win a majority</div></div>
+        <div><div class="stat"><span class="dot dfl"></span>${c.expected_dfl_seats.toFixed(0)} – ${c.expected_r_seats.toFixed(0)}<span class="dot r" style="margin-left:6px"></span></div>
+             <div class="hero-label">expected seats (DFL – R)</div></div>
+        <div><div class="stat">${c.dfl_seats_p10}–${c.dfl_seats_p90}</div><div class="hero-label">DFL seats, 80% range</div></div>
+      </div>
+      <div class="strip" style="grid-template-columns: repeat(${c.seats}, 1fr)"></div>
+      <div class="counts">
+        <span>Counted <b>${cnt("Counted DFL")}</b> DFL · <b>${cnt("Counted R")}</b> R</span>
+        <span>Uncontested <b>${cnt("Uncontested DFL")}</b> DFL · <b>${cnt("Uncontested R")}</b> R</span>
+        <span>Likely/Lean <b>${cnt("Likely DFL") + cnt("Lean DFL")}</b> DFL · <b>${cnt("Likely R") + cnt("Lean R")}</b> R</span>
+        <span>Tossup <b>${cnt("Tossup")}</b></span>
+      </div>
+      <p class="note">${c.districts_fully_reported} of ${c.seats} districts fully counted.
+        DFL running ${pts(c.shift_vs_prior).replace("DFL +", "+").replace("R +", "−")} pts vs Harris 2024 in districts counted so far.${c.seats % 2 ? "" : ` Chance of a ${c.seats / 2}–${c.seats / 2} tie: ${pct(c.p_tie)}.`}</p>`;
+    const strip = card.querySelector(".strip");
+    seats.forEach(s => {
+      const q = document.createElement("div"); q.className = "seat"; q.tabIndex = 0;
+      q.style.background = RCOLOR[s.status] || "var(--tossup)";
+      q.setAttribute("aria-label", `District ${s.district}: ${s.status}`);
+      bindTip(q, () => distTip(s)); strip.appendChild(q); });
+    const line = document.createElement("div"); line.className = "majline";
+    line.style.left = "calc(50% - 1px)";
+    line.innerHTML = `<span>Halfway · ${c.majority} needed for majority</span>`;
+    strip.appendChild(line);
+    const lg = document.createElement("div"); lg.className = "legend";
+    lg.innerHTML = [["Counted / uncontested DFL", RCOLOR["Counted DFL"]], ["Likely DFL", RCOLOR["Likely DFL"]], ["Lean DFL", RCOLOR["Lean DFL"]],
+      ["Tossup", RCOLOR.Tossup], ["Lean R", RCOLOR["Lean R"]], ["Likely R", RCOLOR["Likely R"]], ["Counted / uncontested R", RCOLOR["Counted R"]]]
+      .map(([k, v]) => `<span><i style="background:${v}"></i>${k}</span>`).join("");
+    card.insertBefore(lg, card.querySelector(".counts"));
+    el.appendChild(card);
+  }
+  if (!D.control.length) el.innerHTML = '<p class="note">No legislative results yet.</p>';
+}
+function distTip(s) {
+  return `<b>${OFFICE[s.chamber]} District ${esc(s.district)}</b> · ${esc(s.status)}<br>
+    ${row(`<span class="dot dfl"></span>${esc(s.dfl_candidate || "(no DFL)")}`, s.DFL != null ? nf.format(s.DFL) : "–")}
+    ${row(`<span class="dot r"></span>${esc(s.r_candidate || "(no R)")}`, s.R != null ? nf.format(s.R) : "–")}
+    ${row("Precincts counted", `${s.precincts_reporting}/${s.precincts_total} (${pct(s.w)})`)}
+    ${row("Margin so far", pts(s.margin))}${row("Projected margin", pts(s.projected_margin))}
+    ${row("DFL win chance", pct(s.p_dfl))}${row("2024 Harris–Trump", pts(s.pres24_margin))}
+    ${s.recount_range ? "<br>Within recount range (0.5%)" : ""}${s.other_leading ? "<br>A third-party candidate leads" : ""}`;
+}
+
+// ---------- statewide
+function races() {
+  const el = $("#races"); el.innerHTML = "";
+  for (const off of ORDER) {
+    const cands = D.results.filter(r => r.office === off);
+    if (!cands.length) continue;
+    const rows = D.summary.filter(r => r.live_office === off);
+    const s = rows[0];
+    const tot = cands.reduce((a, c) => a + c.votes, 0);
+    const pv = p => cands.filter(c => c.party === p).reduce((a, c) => a + c.votes, 0);
+    const dfl = pv("DFL"), r = pv("R"), oth = tot - dfl - r;
+    const lead = cands[0];
+    const card = document.createElement("div"); card.className = "card race";
+    card.innerHTML = `
+      <h3><span>${OFFICE[off]}</span><span class="note">${s ? `${pct(s.precincts_reported / s.precincts)} of precincts` : ""}</span></h3>
+      <div class="cands">${cands.filter(c => c.votes > 0 || ["DFL", "R"].includes(c.party)).map(c => `
+        <span class="${c === lead && c.votes ? "lead" : ""}"><span class="dot ${c.party === "DFL" ? "dfl" : c.party === "R" ? "r" : "oth"}"></span>${esc(c.candidate)} <span class="note">${esc(c.party)}</span></span>
+        <span class="num">${nf.format(c.votes)}</span><span class="num">${pct(c.pct, 1)}</span>`).join("")}</div>
+      <div class="sharebar" aria-hidden="true">
+        <div style="flex:${dfl};background:var(--dfl)"></div><div style="flex:${oth};background:var(--tossup)"></div><div style="flex:${r};background:var(--r)"></div></div>
+      <div style="margin-bottom:8px"><b>${pts(tot ? (dfl - r) / tot : null)}</b> <span class="note">margin so far</span></div>
+      <table><thead><tr><th>Compared with</th><th class="n">Margin then</th><th class="n">Swing</th><th></th><th class="n">Votes vs then</th></tr></thead>
+      <tbody>${rows.map(b => `<tr><td>${baseLabel(b)}${b.comparison === "same_office" ? "" : ' <span class="note">top of ticket</span>'}</td>
+        <td class="n">${pts(b.baseline_margin)}</td><td class="n">${pts(b.swing_reported)}</td><td>${dbar(b.swing_reported)}</td>
+        <td class="n">${pct(b.turnout_idx_reported)}</td></tr>`).join("")}</tbody></table>
+      <p class="note">${s && s.counties != null ? `Swing and votes use the ${s.counties_reported} of ${s.counties} counties fully counted.` : "Swing uses fully counted precincts."}</p>`;
+    el.appendChild(card);
+  }
+}
+
+// ---------- counties
+const METRICS = {
+  swing_reported: { label: "Swing", kind: "div", lim: 0.15, fmt: pts },
+  swing_all: { label: "Swing so far", kind: "div", lim: 0.15, fmt: pts },
+  margin: { label: "Margin tonight", kind: "div", lim: 0.5, fmt: pts },
+  margin_base: { label: "Margin then", kind: "div", lim: 0.5, fmt: pts },
+  turnout_idx_all: { label: "Votes vs then", kind: "seq", lo: 0, hi: 1.2, fmt: v => pct(v) },
+  pct_in: { label: "Precincts counted", kind: "seq", lo: 0, hi: 1, fmt: v => pct(v) },
+};
+function countySetup() {
+  const races = ORDER.filter(o => D.county.some(r => r.live_office === o));
+  $("#c-race").innerHTML = races.map(o => `<option value="${o}">${OFFICE[o]}</option>`).join("");
+  if (!races.includes(S.race)) S.race = races[0];
+  $("#c-race").value = S.race; $("#c-metric").value = S.metric;
+  baseOptions();
+  $("#c-race").onchange = e => { S.race = e.target.value; baseOptions(); save(); counties(); };
+  $("#c-base").onchange = e => { S.base = e.target.value; save(); counties(); };
+  $("#c-metric").onchange = e => { S.metric = e.target.value; save(); counties(); };
+}
+function baseOptions() {
+  const seen = new Map();
+  D.county.filter(r => r.live_office === S.race).forEach(r => seen.set(`${r.baseline_year}|${r.baseline_office}`, r));
+  const opts = [...seen.entries()];
+  $("#c-base").innerHTML = opts.map(([k, r]) => `<option value="${k}">${baseLabel(r)}${r.comparison === "same_office" ? "" : " (top of ticket)"}</option>`).join("");
+  if (!seen.has(S.base)) S.base = opts.length ? opts[0][0] : "";
+  $("#c-base").value = S.base;
+}
+function counties() {
+  const [y, bo] = S.base.split("|");
+  const rows = D.county.filter(r => r.live_office === S.race && String(r.baseline_year) === y && r.baseline_office === bo)
+    .map(r => ({ ...r, pct_in: r.precincts ? r.precincts_reported / r.precincts : null }));
+  const M = METRICS[S.metric];
+  const color = v => M.kind === "div" ? divColor(v, M.lim) : seqColor(v, M.lo, M.hi);
+  // map
+  const svg = $("#map");
+  if (D.shapes) {
+    svg.setAttribute("viewBox", `0 0 ${D.shapes.width} ${D.shapes.height}`);
+    svg.innerHTML = "";
+    const byFips = Object.fromEntries(rows.map(r => [D.fips[r.county_id], r]));
+    for (const [f, d] of Object.entries(D.shapes.paths)) {
+      const r = byFips[f]; const p = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      p.setAttribute("d", d); p.setAttribute("fill", color(r ? r[S.metric] : null)); p.setAttribute("tabindex", "0");
+      if (r) { p.setAttribute("aria-label", `${r.county_name}: ${M.fmt(r[S.metric])}`); bindTip(p, () => countyTip(r)); }
+      svg.appendChild(p);
+    }
+  }
+  const sc = $("#scale");
+  if (M.kind === "div") sc.innerHTML = `<span>R +${M.lim * 100}</span><span class="ramp" style="background:linear-gradient(90deg, var(--r), var(--mid), var(--dfl))"></span><span>DFL +${M.lim * 100}</span><span class="note">${S.metric === "swing_reported" ? "Gray: county not fully counted" : ""}</span>`;
+  else sc.innerHTML = `<span>${M.fmt(M.lo)}</span><span class="ramp" style="background:linear-gradient(90deg, ${mix("--seq", "--mid", .08)}, var(--seq))"></span><span>${M.fmt(M.hi)}+</span>`;
+  // table
+  const cols = [["county_name", "County"], ["pct_in", "Counted", "n", v => pct(v)], ["margin", "Margin tonight", "n", pts],
+    ["margin_base", "Margin then", "n", pts], ["swing_all", "Swing so far", "n", pts], ["swing_reported", "Swing (counted)", "n", pts],
+    ["turnout_idx_all", "Votes vs then", "n", v => pct(v)], ["total", "Votes", "n", v => isNum(v) ? nf.format(v) : "–"]];
+  sortTable($("#ctable"), rows, cols, "csort", "cdir", counties, r => `${r.county_name}`);
+}
+function countyTip(r) {
+  return `<b>${esc(r.county_name)} County</b> · ${OFFICE[r.live_office]}<br>
+    ${row("Precincts counted", `${r.precincts_reported}/${r.precincts}`)}
+    ${row('<span class="dot dfl"></span>DFL', nf.format(r.DFL))}${row('<span class="dot r"></span>R', nf.format(r.R))}
+    ${row("Margin tonight", pts(r.margin))}${row(`Margin ${baseLabel(r)}`, pts(r.margin_base))}
+    ${row("Swing so far", pts(r.swing_all))}${row("Swing (fully counted)", r.reported ? pts(r.swing_reported) : "not fully counted")}
+    ${row("Votes vs then", pct(r.turnout_idx_all))}`;
+}
+function sortTable(tbl, rows, cols, sk, dk, rerender, key) {
+  const k = S[sk], dir = S[dk];
+  rows.sort((a, b) => { const x = a[k], y = b[k];
+    if (x == null && y == null) return 0; if (x == null) return 1; if (y == null) return -1;
+    return (typeof x === "string" ? x.localeCompare(y, undefined, { numeric: true }) : x - y) * dir; });
+  tbl.innerHTML = `<thead><tr>${cols.map(([c, l, n]) => `<th class="sort ${n || ""}" data-k="${c}">${l}${c === k ? (dir > 0 ? " ▲" : " ▼") : ""}</th>`).join("")}</tr></thead>
+    <tbody>${rows.map(r => `<tr>${cols.map(([c, , n, f]) => `<td class="${n || ""}">${f ? f(r[c], r) : esc(r[c])}</td>`).join("")}</tr>`).join("")}</tbody>`;
+  tbl.querySelectorAll("th.sort").forEach(th => th.onclick = () => {
+    const c = th.dataset.k; if (S[sk] === c) S[dk] = -S[dk]; else { S[sk] = c; S[dk] = 1; } save(); rerender(); });
+}
+
+// ---------- districts
+function districts() {
+  const q = S.q.trim().toLowerCase();
+  let rows = D.districts.filter(d => d.chamber === S.ch)
+    .map(d => ({ ...d, close: Math.abs(d.contested ? d.projected_margin ?? 1 : 9),
+      vs_pres: isNum(d.margin) && isNum(d.pres24_margin) && d.contested ? d.margin - d.pres24_margin : null }));
+  if (S.status === "competitive") rows = rows.filter(d => ["Lean DFL", "Tossup", "Lean R"].includes(d.status));
+  if (q) rows = rows.filter(d => `${d.district} ${d.dfl_candidate || ""} ${d.r_candidate || ""}`.toLowerCase().includes(q));
+  $("#d-count").textContent = `${rows.length} districts`;
+  const chip = (v, d) => `<span class="chip" style="background:${RCOLOR[v]};color:${/Counted|Uncontested|Likely/.test(v) ? "#fff" : "var(--ink)"}">${esc(v)}</span>${d.recount_range ? '<span class="flag">recount range</span>' : ""}${d.other_leading ? '<span class="flag">3rd party leads</span>' : ""}`;
+  const cols = [["district", "District"], ["status", "Rating", "", chip], ["dfl_candidate", "DFL", "", v => v ? esc(v) : '<span class="note">none</span>'],
+    ["r_candidate", "Republican", "", v => v ? esc(v) : '<span class="note">none</span>'], ["w", "Counted", "n", v => pct(v)],
+    ["margin", "Margin so far", "n", pts], ["projected_margin", "Projected", "n", pts],
+    ["p_dfl", "DFL win chance", "n", v => `${pct(v)} <span class="pbar"><span style="width:${(v || 0) * 100}%"></span></span>`],
+    ["pres24_margin", "2024 Pres", "n", pts], ["vs_pres", "vs 2024 Pres", "n", v => `${pts(v)} ${dbar(v)}`], ["close", "Closeness", "n", v => v >= 9 ? "–" : (v * 100).toFixed(1)]];
+  sortTable($("#dtable"), rows, cols, "dsort", "ddir", districts);
+  $("#dtable").querySelectorAll("tbody tr").forEach((tr, i) => bindTip(tr, () => distTip(rows[i])));
+}
+function districtSetup() {
+  $("#d-ch").value = S.ch; $("#d-status").value = S.status; $("#d-q").value = S.q;
+  $("#d-ch").onchange = e => { S.ch = e.target.value; save(); districts(); };
+  $("#d-status").onchange = e => { S.status = e.target.value; save(); districts(); };
+  $("#d-q").oninput = e => { S.q = e.target.value; save(); districts(); };
+}
+
+// ---------- theme + auto refresh
+const root = document.documentElement;
+const th = localStorage.getItem("mnTheme"); if (th) root.dataset.theme = th;
+$("#theme").onclick = () => { const dark = root.dataset.theme ? root.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+  root.dataset.theme = dark ? "light" : "dark"; localStorage.setItem("mnTheme", root.dataset.theme); };
+let left = 60;
+function tick() {
+  $("#pause").textContent = S.paused ? "Resume refresh" : "Pause refresh";
+  $("#refresh").textContent = S.paused ? "Auto-refresh paused" : `Reloading in ${left}s`;
+  if (!S.paused && --left <= 0) { save(); sessionStorage.setItem("mnScroll", scrollY); location.reload(); }
+}
+$("#pause").onclick = () => { S.paused = !S.paused; left = 60; save(); tick(); };
+
+// ---------- go
+header(); control(); races(); countySetup(); counties(); districtSetup(); districts();
+scrollTo(0, +sessionStorage.getItem("mnScroll") || 0);
+tick(); setInterval(tick, 1000);
+</script>
+</body>
+</html>

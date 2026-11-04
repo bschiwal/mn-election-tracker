@@ -18,6 +18,8 @@ Precinct matching:
 """
 from __future__ import annotations
 
+import time
+
 import pandas as pd
 
 from .common import OUTPUT_DIR, norm_name
@@ -192,9 +194,29 @@ def run_county(live: pd.DataFrame, base: pd.DataFrame, cfg: dict,
     return {"county_swing": county, "statewide_summary": pd.DataFrame(state_rows)}
 
 
+def statewide_results(live: pd.DataFrame) -> pd.DataFrame:
+    """Statewide vote totals per candidate, from precinct or county rows."""
+    v = (live.groupby(["office", "candidate", "party_raw"], as_index=False)["votes"].sum()
+         .rename(columns={"party_raw": "party"}))
+    v["pct"] = v["votes"] / v.groupby("office")["votes"].transform("sum").where(lambda x: x > 0)
+    rep = (live.groupby(["office", "county_id", "precinct_code"])[["precincts_reporting", "precincts_total"]]
+           .max().groupby("office").sum().reset_index())
+    v = v.merge(rep, on="office", how="left")
+    return v.sort_values(["office", "votes"], ascending=[True, False]).reset_index(drop=True)
+
+
 def write(outputs: dict[str, pd.DataFrame], stamp: str) -> None:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     for name, df in outputs.items():
         df = df.assign(snapshot_utc=stamp)
-        df.to_csv(OUTPUT_DIR / f"{name}.csv", index=False)
-        print(f"  wrote data/output/{name}.csv ({len(df):,} rows)")
+        # Excel or OneDrive can briefly lock a file: retry, then skip it this round
+        for attempt in range(3):
+            try:
+                df.to_csv(OUTPUT_DIR / f"{name}.csv", index=False)
+                print(f"  wrote data/output/{name}.csv ({len(df):,} rows)")
+                break
+            except PermissionError:
+                if attempt == 2:
+                    print(f"  !! data/output/{name}.csv is locked (open in Excel?), skipped this round")
+                else:
+                    time.sleep(2)

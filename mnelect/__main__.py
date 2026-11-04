@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from . import baselines, compare, legislature, sos
+from . import baselines, compare, dashboard, legislature, sos
 from .common import REFERENCE_DIR, load_config
 
 
@@ -33,6 +33,7 @@ def run_once(cfg: dict, from_dir: str | None = None) -> None:
         print(f"  county mode (no precinct file yet) | rows: {len(live):,}  "
               f"offices: {sorted(live['office'].unique())}")
         out = compare.run_county(live, base, cfg, counties)
+    out["statewide_results"] = compare.statewide_results(live)
     compare.write(out, folder.name)
     s = out["statewide_summary"]
     if len(s):
@@ -49,6 +50,11 @@ def run_once(cfg: dict, from_dir: str | None = None) -> None:
                   f"P(DFL maj) {r.p_dfl_majority:.0%}  P(R maj) {r.p_r_majority:.0%}  "
                   f"P(tie) {r.p_tie:.0%}  | {r.districts_fully_reported}/{r.seats} districts fully counted")
 
+    try:
+        dashboard.build({**out, **leg}, stamp=folder.name)
+    except Exception as e:  # never let the dashboard stop the data pipeline
+        print(f"  !! dashboard build failed: {e}")
+
 
 def main() -> None:
     ap = argparse.ArgumentParser(prog="mnelect")
@@ -57,6 +63,7 @@ def main() -> None:
     d = sub.add_parser("discover"); d.add_argument("url")
     o = sub.add_parser("once"); o.add_argument("--from-dir")
     sub.add_parser("poll")
+    sub.add_parser("dashboard")
     a = ap.parse_args()
     cfg = load_config()
 
@@ -66,6 +73,8 @@ def main() -> None:
     elif a.cmd == "discover":
         for link in sos.discover(a.url):
             print(link)
+    elif a.cmd == "dashboard":
+        dashboard.build()
     elif a.cmd == "once":
         run_once(cfg, a.from_dir)
     elif a.cmd == "poll":
