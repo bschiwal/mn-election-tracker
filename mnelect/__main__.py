@@ -45,7 +45,7 @@ def run_once(cfg: dict, from_dir: str | None = None) -> None:
     if leg:
         compare.write(leg, folder.name)
         for r in leg["chamber_control"].itertuples():
-            print(f"  {r.chamber}: DFL {r.expected_dfl_seats:.0f} / R {r.expected_r_seats:.0f} expected "
+            print(f"  {r.chamber}: DFL {round(r.expected_dfl_seats)} / R {r.seats - round(r.expected_dfl_seats)} expected "
                   f"(DFL 80% range {r.dfl_seats_p10}-{r.dfl_seats_p90}, need {r.majority})  "
                   f"P(DFL maj) {r.p_dfl_majority:.0%}  P(R maj) {r.p_r_majority:.0%}  "
                   f"P(tie) {r.p_tie:.0%}  | {r.districts_fully_reported}/{r.seats} districts fully counted")

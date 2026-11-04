@@ -61,7 +61,15 @@ h2 { font-size: 16px; margin: 0 0 4px; font-weight: 650; }
 .hero-label { color: var(--ink-2); font-size: 13px; margin-top: 4px; }
 .stat { font-size: 20px; font-weight: 600; line-height: 1.1; }
 .strip { position: relative; display: grid; gap: 2px; margin: 18px 0 6px; }
-.seat { height: 22px; border-radius: 3px; cursor: default; outline-offset: 1px; }
+.seat { position: relative; height: 36px; border-radius: 3px; cursor: default; outline-offset: 1px;
+  background: var(--nodata); overflow: hidden; }
+.seat .fill { position: absolute; left: 0; right: 0; bottom: 0; }
+.seat.done { box-shadow: inset 0 0 0 1px var(--ink-2); }
+.strip-labels { display: flex; justify-content: space-between; font-size: 12px; color: var(--ink-2); }
+.legend .ramp { display: inline-block; width: 90px; height: 10px; border-radius: 3px; vertical-align: -1px; margin: 0 5px; }
+.legend .fillkey { display: inline-flex; gap: 2px; vertical-align: -3px; margin-right: 5px; }
+.legend .fillkey b { position: relative; width: 6px; height: 14px; background: var(--nodata); border-radius: 2px; overflow: hidden; }
+.legend .fillkey b i { position: absolute; left: 0; right: 0; bottom: 0; width: auto; height: auto; margin: 0; border-radius: 0; background: var(--ink-2); }
 .seat:focus-visible { outline: 2px solid var(--ink); }
 .majline { position: absolute; top: -12px; bottom: -4px; width: 0; border-left: 2px solid var(--ink); }
 .majline span { position: absolute; top: -6px; left: 4px; font-size: 11px; color: var(--ink-2); white-space: nowrap; }
@@ -131,7 +139,7 @@ svg.map path:hover, svg.map path:focus { stroke: var(--ink); stroke-width: 1.6; 
 <main>
   <section>
     <h2>Legislature: who controls the House and Senate?</h2>
-    <p class="sub">Each square is one seat, sorted from most likely DFL (left) to most likely Republican (right). The black line marks the halfway point.
+    <p class="sub">Each bar is one seat. Seats are split by who is ahead (DFL left, Republicans right), then ordered from most reported at the outer edges to least reported at the center. Darker = bigger margin; the fill rises as precincts report. The black line marks the halfway point.
       Estimates blend votes counted so far with each district's 2024 presidential result, adjusted for how the DFL is running tonight.</p>
     <div class="grid2" id="control"></div>
   </section>
@@ -241,8 +249,8 @@ const RCOLOR = Object.fromEntries(RATINGS.map(([k, v, t]) => [k, v ? (t === 1 ? 
 function control() {
   const el = $("#control"); el.innerHTML = "";
   for (const c of D.control) {
-    const seats = D.districts.filter(d => d.chamber === c.chamber)
-      .sort((a, b) => b.p_dfl - a.p_dfl || (b.projected_margin ?? 0) - (a.projected_margin ?? 0));
+    const seats = seatOrder(D.districts.filter(d => d.chamber === c.chamber));
+    const nD = seats.filter(s => s.m > 0).length, nR = seats.filter(s => s.m < 0).length;
     const fav = c.p_dfl_majority >= c.p_r_majority ? ["DFL", c.p_dfl_majority] : ["Republicans", c.p_r_majority];
     const card = document.createElement("div"); card.className = "card";
     const cnt = k => seats.filter(s => s.status === k).length;
@@ -250,7 +258,7 @@ function control() {
       <h2>${OFFICE[c.chamber]} <span class="note">· ${c.seats} seats · ${c.majority} for a majority</span></h2>
       <div class="ctl-top">
         <div><div class="hero">${pct(fav[1])}</div><div class="hero-label">chance ${fav[0]} win a majority</div></div>
-        <div><div class="stat"><span class="dot dfl"></span>${c.expected_dfl_seats.toFixed(0)} – ${c.expected_r_seats.toFixed(0)}<span class="dot r" style="margin-left:6px"></span></div>
+        <div><div class="stat"><span class="dot dfl"></span>${Math.round(c.expected_dfl_seats)} – ${c.seats - Math.round(c.expected_dfl_seats)}<span class="dot r" style="margin-left:6px"></span></div>
              <div class="hero-label">expected seats (DFL – R)</div></div>
         <div><div class="stat">${c.dfl_seats_p10}–${c.dfl_seats_p90}</div><div class="hero-label">DFL seats, 80% range</div></div>
       </div>
@@ -266,22 +274,51 @@ function control() {
     const strip = card.querySelector(".strip");
     seats.forEach(s => {
       const q = document.createElement("div"); q.className = "seat"; q.tabIndex = 0;
-      q.style.background = RCOLOR[s.status] || "var(--tossup)";
-      q.setAttribute("aria-label", `District ${s.district}: ${s.status}`);
+      if (s.decided) q.classList.add("done");
+      const f = document.createElement("div"); f.className = "fill";
+      f.style.height = `${(s.decided ? 1 : s.w || 0) * 100}%`;
+      f.style.background = s.m == null ? "transparent" : seatColor(s.m);
+      q.appendChild(f);
+      q.setAttribute("aria-label", `District ${s.district}: ${s.decided ? "counted" : pct(s.w) + " counted"}, ${s.m == null ? "no votes yet" : pts(s.m)}`);
       bindTip(q, () => distTip(s)); strip.appendChild(q); });
     const line = document.createElement("div"); line.className = "majline";
     line.style.left = "calc(50% - 1px)";
     line.innerHTML = `<span>Halfway · ${c.majority} needed for majority</span>`;
     strip.appendChild(line);
+    const nDone = k => seats.filter(s => s.decided && Math.sign(s.m) === k).length;
+    const lab = document.createElement("div"); lab.className = "strip-labels";
+    lab.innerHTML = `<span>◀ DFL won <b>${nDone(1)}</b> · ahead <b>${nD - nDone(1)}</b></span>
+      <span>${seats.length - nD - nR ? `no votes yet <b>${seats.length - nD - nR}</b>` : ""}</span>
+      <span>ahead <b>${nR - nDone(-1)}</b> · R won <b>${nDone(-1)}</b> ▶</span>`;
     const lg = document.createElement("div"); lg.className = "legend";
-    lg.innerHTML = [["Counted / uncontested DFL", RCOLOR["Counted DFL"]], ["Likely DFL", RCOLOR["Likely DFL"]], ["Lean DFL", RCOLOR["Lean DFL"]],
-      ["Tossup", RCOLOR.Tossup], ["Lean R", RCOLOR["Lean R"]], ["Likely R", RCOLOR["Likely R"]], ["Counted / uncontested R", RCOLOR["Counted R"]]]
-      .map(([k, v]) => `<span><i style="background:${v}"></i>${k}</span>`).join("");
+    lg.innerHTML = `<span>Margin: R +30<span class="ramp" style="background:linear-gradient(90deg, var(--r), var(--mid), var(--dfl))"></span>DFL +30</span>
+      <span><span class="fillkey"><b><i style="height:25%"></i></b><b><i style="height:60%"></i></b><b><i style="height:100%"></i></b></span>Fill height = precincts counted</span>
+      <span>Outlined = fully counted or uncontested</span>`;
+    card.insertBefore(lab, card.querySelector(".counts"));
     card.insertBefore(lg, card.querySelector(".counts"));
     el.appendChild(card);
   }
   if (!D.control.length) el.innerHTML = '<p class="note">No legislative results yet.</p>';
 }
+// Seat order: split by who leads, then most reported at the edges -> least at the center.
+function seatOrder(list) {
+  const rows = list.map(d => {
+    const decided = d.w >= 1 || !d.contested;
+    let m = isNum(d.margin) ? d.margin : null;
+    if (!d.contested && (m == null || Math.abs(m) < 1e-9)) m = d.dfl_candidate ? 1 : -1;  // uncontested, no votes yet
+    if (m === 0) m = null;
+    return { ...d, decided, m };
+  });
+  // each side runs from most reported (outer edge) to least reported (center);
+  // ties broken by margin, bigger margins further out
+  const rep = r => (r.decided ? 1 : r.w || 0);
+  const outward = (a, b) => rep(b) - rep(a) || Math.abs(b.m) - Math.abs(a.m);
+  const dfl = rows.filter(r => r.m > 0).sort(outward);
+  const gop = rows.filter(r => r.m < 0).sort(outward).reverse();
+  return [...dfl, ...rows.filter(r => r.m == null), ...gop];
+}
+const seatColor = m => mix(m >= 0 ? "--dfl" : "--r", "--mid", 0.25 + 0.75 * Math.min(Math.abs(m) / 0.3, 1));
+
 function distTip(s) {
   return `<b>${OFFICE[s.chamber]} District ${esc(s.district)}</b> · ${esc(s.status)}<br>
     ${row(`<span class="dot dfl"></span>${esc(s.dfl_candidate || "(no DFL)")}`, s.DFL != null ? nf.format(s.DFL) : "–")}
