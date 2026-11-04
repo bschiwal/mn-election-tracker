@@ -1,0 +1,5 @@
+data/baselines/raw/
+data/snapshots/
+__pycache__/
+*.pyc
+.venv/

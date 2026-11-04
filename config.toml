@@ -1,0 +1,38 @@
+# Configuration for the MN live-results tracker.
+# Edit this file rather than the code when URLs / file names change.
+
+[live]
+# Election date folder on the SOS media-files server.
+# NOTE: the exact host and file names were NOT verifiable from the build
+# sandbox (network blocked). Run `python -m mnelect discover` locally and
+# confirm/adjust these values. See PLAN.md, step 1.
+base_url = "https://electionresultsfiles.sos.mn.gov/20261103/"
+
+# Media file(s) with statewide races broken down BY PRECINCT.
+# Semicolon-delimited SOS media-file layout (see mnelect/sos.py).
+precinct_files = ["allracesbyprecinct.txt"]
+
+# Optional: county-level statewide-races file (used as a cross-check / fallback).
+county_files = []
+
+# Optional: precinct lookup table (County ID;Precinct ID;Precinct Name;...)
+# Needed to name-match the 2022 baseline (which has names but no codes).
+precinct_table_file = "PrctTbl.txt"
+
+# Seconds between polls in `poll` mode. Be polite to the SOS server.
+poll_seconds = 300
+
+[baselines]
+# Years to compare against: last presidential + last two midterms (+2020 bonus).
+years = [2024, 2022, 2020, 2018]
+
+# "Top of ticket" race per baseline year. Every live race is compared to
+# the same office (when it was on the ballot) AND to that year's top race.
+top_of_ticket = { "2024" = "PRESIDENT", "2022" = "GOVERNOR", "2020" = "PRESIDENT", "2018" = "GOVERNOR" }
+
+[baselines.sources]
+# All reachable without the SOS site (GitHub-hosted, public).
+2018 = "https://raw.githubusercontent.com/openelections/openelections-data-mn/master/2018/20181106__mn__general__precinct.csv"
+2020 = "https://raw.githubusercontent.com/openelections/openelections-data-mn/master/2020/20201103__mn__general__precinct.csv"
+2022 = "https://raw.githubusercontent.com/openelections/openelections-data-mn/master/2022/20221108__mn__general__precinct.csv"
+2024 = "https://raw.githubusercontent.com/MEDSL/2024-elections-official/main/individual_states/mn24.zip"
