@@ -49,6 +49,32 @@ class PipelineTest(unittest.TestCase):
         self.assertEqual(len(c), 87)
         self.assertTrue((c.swing_reported.abs() < 1e-9).all())
 
+    def test_county_mode_zero_swing(self):
+        # 2024 presidential totals by county, in SOS county-file format;
+        # even-numbered counties fully reported, odd ones half reported.
+        b = self.base[(self.base.year == 2024) & (self.base.office == "PRESIDENT")]
+        cty = b.groupby(["county_id", "party"], as_index=False)["votes"].sum()
+        lines = []
+        for r in cty.itertuples():
+            party = {"DFL": "DFL", "R": "R", "OTHER": "LIB"}[r.party]
+            rep = "10" if r.county_id % 2 == 0 else "5"
+            lines.append(";".join(["MN", f"{r.county_id:02d}", "", "0331",
+                                   "Governor & Lt Governor", "", "1", "Candidate", "", "",
+                                   party, rep, "10", str(r.votes), "0", "0"]))
+        live = sos.parse_results("\n".join(lines))
+        out = compare.run_county(live, self.base, self.cfg, self.counties)
+        s = out["statewide_summary"].set_index(["baseline_year", "baseline_office"])
+        row = s.loc[(2024, "PRESIDENT")]
+        self.assertAlmostEqual(row.swing_reported, 0.0, places=9)
+        self.assertAlmostEqual(row.turnout_idx_reported, 1.0, places=9)
+        self.assertEqual(row.counties, 87)
+        self.assertEqual(row.counties_reported, 43)
+        c = out["county_swing"]
+        c = c[(c.baseline_year == 2024) & (c.baseline_office == "PRESIDENT")]
+        self.assertEqual(len(c), 87)
+        self.assertTrue((c.swing_all.abs() < 1e-9).all())
+        self.assertEqual(int(c.swing_reported.notna().sum()), 43)
+
     def test_office_mapping(self):
         from mnelect.common import map_office
         self.assertEqual(map_office("U.S. Senator"), "US_SENATE")

@@ -16,12 +16,18 @@
   turnout index in all 87 counties.
 
 **Not done / unverified (the build machine could not reach sos.mn.gov)**
-1. Exact live file names and column layout have **not** been checked
-   against the real 2026 feed.
+1. ~~Exact live file names and column layout have **not** been checked
+   against the real 2026 feed.~~ **Checked Nov 3 2026 (local):** the 16-field
+   layout matches. `allracesbycounty.txt` and `PrctTbl.txt` are live;
+   `allracesbyprecinct.txt` is not posted yet (404). Until it is, `once` and
+   `poll` run in **county mode** (`compare.run_county`), which writes
+   `county_swing.csv` and `statewide_summary.csv` only. The server returns
+   403 for folder listings, so `discover` doesn't work: probe file names
+   directly.
 2. 2022 precinct matching (by name) depends on the live precinct-name table
    and is untested against real names.
 3. No Power BI model or visuals yet.
-4. No GitHub repo yet (the sandbox's GitHub token was invalid).
+4. ~~No GitHub repo yet.~~ Done: github.com/bschiwal/mn-election-tracker (private).
 
 ---
 

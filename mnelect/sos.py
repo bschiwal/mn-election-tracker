@@ -98,7 +98,7 @@ def load_snapshot(folder: Path, cfg: dict) -> tuple[pd.DataFrame, pd.DataFrame |
         if p.exists():
             frames.append(parse_results(p.read_bytes()))
     if not frames:
-        raise FileNotFoundError(f"no precinct result files found in {folder}")
+        return pd.DataFrame(columns=SOS_COLS + ["office"]), None
     res = pd.concat(frames, ignore_index=True)
     res = res[res["precinct_code"] != ""]          # keep precinct rows only
     res = res.drop_duplicates(["county_id", "precinct_code", "office", "cand_order"])
@@ -107,6 +107,20 @@ def load_snapshot(folder: Path, cfg: dict) -> tuple[pd.DataFrame, pd.DataFrame |
     if tname and (Path(folder) / tname).exists():
         table = parse_precinct_table((Path(folder) / tname).read_bytes())
     return res, table
+
+
+def load_county_snapshot(folder: Path, cfg: dict) -> pd.DataFrame:
+    """County-level live results (statewide races), or an empty frame."""
+    frames = []
+    for name in cfg["live"].get("county_files", []):
+        p = Path(folder) / name
+        if p.exists():
+            frames.append(parse_results(p.read_bytes()))
+    if not frames:
+        return pd.DataFrame(columns=SOS_COLS + ["office"])
+    res = pd.concat(frames, ignore_index=True)
+    res = res[(res["county_id"] > 0) & (res["precinct_code"] == "")]
+    return res.drop_duplicates(["county_id", "office", "cand_order"])
 
 
 def discover(index_url: str) -> list[str]:

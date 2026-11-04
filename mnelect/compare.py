@@ -141,6 +141,57 @@ def run(live: pd.DataFrame, table: pd.DataFrame | None, base: pd.DataFrame,
             "statewide_summary": pd.DataFrame(state_rows)}
 
 
+def run_county(live: pd.DataFrame, base: pd.DataFrame, cfg: dict,
+               counties: pd.DataFrame) -> dict[str, pd.DataFrame]:
+    """County-only comparison, for when SOS has not posted precinct-level files.
+
+    `live` is a parsed county file (one row per county x office x candidate).
+    A county counts as "reported" once all its precincts are in, so the
+    *_reported columns use fully counted counties only.
+    """
+    keys = ["county_id", "office"]
+    rep = live.groupby(keys)[["precincts_reporting", "precincts_total"]].max().reset_index()
+    agg = live.groupby(keys + ["party"], as_index=False)["votes"].sum()
+    lw = _wide(agg, ["county_id"]).merge(rep, on=keys, how="left")
+    lw["reported"] = (lw["precincts_total"] > 0) & (lw["precincts_reporting"] >= lw["precincts_total"])
+    lw = lw.rename(columns={"precincts_reporting": "precincts_reported",
+                            "precincts_total": "precincts"})
+
+    pairs = comparison_pairs(lw["office"].unique(), base, cfg["baselines"]["top_of_ticket"])
+    cty_rows, state_rows = [], []
+    for lo, y, bo, kind in pairs:
+        L = lw[lw["office"] == lo].drop(columns="office")
+        Bc = (base[(base["year"] == y) & (base["office"] == bo)]
+              .pipe(_wide, ["county_id"]).drop(columns="office"))
+        c = L.merge(Bc, on="county_id", how="left", suffixes=("", "_base"))
+        c["swing_all"] = c["margin"] - c["margin_base"]
+        c["turnout_idx_all"] = c["total"] / c["total_base"]
+        c["swing_reported"] = c["swing_all"].where(c["reported"])
+        c["turnout_idx_reported"] = c["turnout_idx_all"].where(c["reported"])
+        c = c.assign(live_office=lo, baseline_year=y, baseline_office=bo, comparison=kind)
+        cty_rows.append(c)
+
+        r = c[c["reported"] & c["total_base"].notna()]
+        s = {"live_office": lo, "baseline_year": y, "baseline_office": bo, "comparison": kind,
+             "precincts_reported": int(L["precincts_reported"].sum()),
+             "precincts": int(L["precincts"].sum()),
+             "counties_reported": int(L["reported"].sum()), "counties": len(L),
+             "live_margin": (L["DFL"].sum() - L["R"].sum()) / max(L["total"].sum(), 1),
+             "baseline_margin": (Bc["DFL"].sum() - Bc["R"].sum()) / max(Bc["total"].sum(), 1),
+             "swing_reported": (r["DFL"].sum() - r["R"].sum()) / max(r["total"].sum(), 1)
+                               - (r["DFL_base"].sum() - r["R_base"].sum()) / max(r["total_base"].sum(), 1)
+                               if len(r) else float("nan"),
+             "turnout_idx_reported": r["total"].sum() / max(r["total_base"].sum(), 1)
+                                     if len(r) else float("nan")}
+        state_rows.append(s)
+
+    county = pd.concat(cty_rows, ignore_index=True) if cty_rows else pd.DataFrame()
+    if len(county):
+        county.insert(0, "county_name", county["county_id"].map(
+            counties.set_index("county_id")["county_name"]))
+    return {"county_swing": county, "statewide_summary": pd.DataFrame(state_rows)}
+
+
 def write(outputs: dict[str, pd.DataFrame], stamp: str) -> None:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     for name, df in outputs.items():

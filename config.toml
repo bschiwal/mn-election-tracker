@@ -12,8 +12,13 @@ base_url = "https://electionresultsfiles.sos.mn.gov/20261103/"
 # Semicolon-delimited SOS media-file layout (see mnelect/sos.py).
 precinct_files = ["allracesbyprecinct.txt"]
 
-# Optional: county-level statewide-races file (used as a cross-check / fallback).
-county_files = []
+# NOTE (checked Nov 3 2026, ~1/3 of precincts in): allracesbyprecinct.txt is
+# not posted yet (404). In 2024 it was last updated Dec 19, i.e. likely posted
+# after the canvass. Until it appears, the tracker runs in county mode.
+
+# County-level statewide-races file. Used when no precinct file is available.
+# Confirmed live on Nov 3 2026, same 16-field layout as the precinct file.
+county_files = ["allracesbycounty.txt"]
 
 # Optional: precinct lookup table (County ID;Precinct ID;Precinct Name;...)
 # Needed to name-match the 2022 baseline (which has names but no codes).

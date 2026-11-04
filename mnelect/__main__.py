@@ -21,10 +21,18 @@ from .common import REFERENCE_DIR, load_config
 def run_once(cfg: dict, from_dir: str | None = None) -> None:
     folder = Path(from_dir) if from_dir else sos.snapshot(cfg)
     live, table = sos.load_snapshot(folder, cfg)
-    print(f"  live rows: {len(live):,}  offices: {sorted(live['office'].unique())}")
     base = baselines.load()
     counties = pd.read_csv(REFERENCE_DIR / "counties.csv")
-    out = compare.run(live, table, base, cfg, counties)
+    if len(live):
+        print(f"  precinct mode | rows: {len(live):,}  offices: {sorted(live['office'].unique())}")
+        out = compare.run(live, table, base, cfg, counties)
+    else:
+        live = sos.load_county_snapshot(folder, cfg)
+        if not len(live):
+            raise FileNotFoundError(f"no precinct or county result files found in {folder}")
+        print(f"  county mode (no precinct file yet) | rows: {len(live):,}  "
+              f"offices: {sorted(live['office'].unique())}")
+        out = compare.run_county(live, base, cfg, counties)
     compare.write(out, folder.name)
     s = out["statewide_summary"]
     if len(s):
